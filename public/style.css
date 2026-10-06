@@ -1,0 +1,781 @@
+/* Checkers — minimal, quiet, no external assets. */
+
+/* Nebula Sans, self-hosted (SIL OFL — see fonts/license.txt). */
+@font-face {
+  font-family: "Nebula Sans";
+  src: url("/fonts/NebulaSans-Book.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Nebula Sans";
+  src: url("/fonts/NebulaSans-Semibold.woff2") format("woff2");
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Nebula Sans";
+  src: url("/fonts/NebulaSans-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-display: swap;
+}
+
+/* Theme: OKLCH everywhere, one palette via light-dark(). The default
+   follows the system scheme; the manual toggle pins color-scheme. */
+:root {
+  color-scheme: light dark;
+
+  --bg: light-dark(oklch(96% 0.01 90), oklch(21% 0.01 255));
+  --fg: light-dark(oklch(24% 0.01 80), oklch(92% 0.01 90));
+  --muted: light-dark(oklch(56% 0.02 85), oklch(66% 0.02 90));
+  --surface: light-dark(oklch(99% 0.005 95), oklch(25% 0.012 255));
+  --edge: light-dark(oklch(86% 0.015 90), oklch(33% 0.015 255));
+  /* the board: two quiet neutrals, a frame, and the two seats */
+  --square-light: light-dark(oklch(94% 0.012 85), oklch(36% 0.01 255));
+  --square-dark: light-dark(oklch(79% 0.014 75), oklch(27.5% 0.01 255));
+  --frame: light-dark(oklch(70% 0.014 75), oklch(31% 0.012 255));
+  --red: light-dark(oklch(60% 0.19 27), oklch(65% 0.17 27));
+  --black: light-dark(oklch(27% 0.012 260), oklch(17% 0.01 260));
+  /* the light rim that keeps black pieces readable on dark squares */
+  --black-rim: light-dark(oklch(62% 0.01 260), oklch(58% 0.01 260));
+  /* the crown, in each piece's contrast color */
+  --crown-on-red: oklch(97% 0.02 85);
+  --crown-on-black: light-dark(oklch(88% 0.03 85), oklch(84% 0.03 85));
+  /* one neutral accent for every overlay: selection, markers, trail, ghosts */
+  --accent: light-dark(oklch(35% 0.02 260), oklch(90% 0.015 90));
+  /* destructive actions */
+  --danger: light-dark(oklch(55% 0.2 27), oklch(68% 0.17 27));
+  --danger-ink: oklch(98% 0 0);
+  --shadow: light-dark(oklch(20% 0.02 90 / 0.14), oklch(0% 0 0 / 0.5));
+  /* the board's contact shadow: heavier in light mode, where a light
+     shadow reads faint against the pale background */
+  --board-shadow: light-dark(oklch(20% 0.02 90 / 0.28), var(--shadow));
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* display:flex on the views would otherwise beat the hidden attribute */
+[hidden] {
+  display: none !important;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: "Nebula Sans", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font: inherit;
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--edge);
+  border-radius: 0.55rem;
+  padding: 0.5rem 1.1rem;
+  cursor: pointer;
+}
+button.primary {
+  background: var(--fg);
+  color: var(--bg);
+  border-color: transparent;
+}
+button:active {
+  transform: translateY(1px);
+}
+
+#theme-toggle {
+  position: fixed;
+  top: 0.65rem;
+  right: 0.65rem;
+  z-index: 1;
+  background: none;
+  border: none;
+  padding: 0.35rem;
+  font-size: 1.15rem;
+  line-height: 1;
+  color: var(--muted);
+}
+
+.wordmark {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--fg);
+  text-decoration: none;
+}
+
+.chip {
+  display: inline-block;
+  width: 0.8rem;
+  height: 0.8rem;
+  border-radius: 50%;
+  vertical-align: -0.05rem;
+}
+.chip.black { background: var(--black); box-shadow: inset 0 0 0 1.5px var(--black-rim); }
+.chip.red { background: var(--red); }
+.chip.spectator { background: var(--muted); }
+.chip.you { box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px var(--muted); }
+.chip.black.you {
+  box-shadow: inset 0 0 0 1.5px var(--black-rim), 0 0 0 2px var(--bg), 0 0 0 3.5px var(--muted);
+}
+/* In the scoreboard, a chip pulses while that player is connected.
+   The pulse fades the fill only, so the "you" ring around it stays
+   solid. */
+#score .chip.on {
+  animation: chip-pulse 1.25s ease-in-out infinite;
+}
+
+/* ---------------- landing ---------------- */
+
+#landing {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.1rem;
+  padding: 2rem 1.25rem;
+  text-align: center;
+}
+#landing .wordmark {
+  font-size: 3.2rem;
+  margin: 0;
+}
+.tagline {
+  margin: 0;
+  color: var(--muted);
+}
+#landing .primary {
+  padding: 0.7rem 1.8rem;
+  font-size: 1.05rem;
+}
+
+#recent {
+  margin-top: 1.5rem;
+  width: min(22rem, 100%);
+}
+#recent h2 {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin: 0 0 0.4rem;
+}
+#recent-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+#recent-list a {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.7rem;
+  border-radius: 0.55rem;
+  color: var(--fg);
+  text-decoration: none;
+}
+#recent-list a:hover {
+  background: var(--surface);
+}
+#recent-list code {
+  font-size: 0.95rem;
+}
+.recent-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.badge {
+  font-size: 0.72rem;
+  color: var(--muted);
+  border: 1px solid var(--edge);
+  border-radius: 999px;
+  padding: 0.06rem 0.45rem;
+  white-space: nowrap;
+}
+#recent-list time {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+#recent-list li {
+  display: flex;
+  align-items: center;
+  transition: opacity 200ms ease;
+}
+#recent-list li.removing {
+  opacity: 0;
+}
+.remove {
+  flex: 0 0 auto;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin: 0 0.15rem;
+  background: none;
+  border: none;
+  border-radius: 0.45rem;
+  padding: 0;
+  line-height: 1;
+  font-size: 1.1rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+.remove:hover,
+.remove:focus-visible {
+  color: var(--red);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #recent-list li {
+    transition: none;
+  }
+}
+
+
+/* ---------------- game ---------------- */
+
+#game {
+  /* Cell size from the viewport's limiting dimension: the whole board
+     always fits with the chrome around it, no scrolling anywhere. The
+     height budget also reserves room for the big wordmark header up top. */
+  --header-top: clamp(0.5rem, 4dvh, 2rem);
+  --wordmark-size: 3.45rem;
+  --header-bottom: clamp(1.25rem, 3dvh, 2rem);
+  --header: calc(var(--header-top) + var(--wordmark-size) + var(--header-bottom));
+  --cell: min(
+    calc((100dvw - 3rem) / 8.3),
+    calc((100dvh - (13rem + var(--header))) / 8.3),
+    72px
+  );
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1rem;
+  overflow: hidden;
+}
+
+/* The wordmark on its own line at the top, not centered with the board. */
+.game-wordmark {
+  flex: 0 0 auto;
+  font-size: var(--wordmark-size);
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--fg);
+  text-decoration: none;
+  margin-top: var(--header-top);
+  margin-bottom: var(--header-bottom);
+}
+
+/* Everything below the wordmark centers itself in the space that remains, so
+   the board's vertical position stays stable instead of getting pushed down. */
+.game-core {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(0.5rem, 2dvh, 1.1rem);
+}
+
+/* Short landscape (phones): controls beside the board, height drives cells.
+   The core is flattened via display:contents so its children become grid
+   items of #game; the wordmark tucks compactly above the left column. */
+@media (orientation: landscape) and (max-height: 480px) {
+  #game {
+    --header-top: 0.25rem;
+    --wordmark-size: 1.6rem;
+    --header-bottom: 0.35rem;
+    --cell: min(calc((100dvh - 3rem) / 8.3), calc((100dvw - 19rem) / 8.3), 72px);
+    display: grid;
+    grid-template-columns: max-content auto;
+    grid-template-rows: auto auto auto 1fr;
+    align-content: center;
+    justify-content: center;
+    column-gap: clamp(1.2rem, 4dvw, 2.5rem);
+    row-gap: 0.6rem;
+  }
+  #game .game-wordmark { grid-column: 1; grid-row: 1; align-self: end; }
+  #game .game-core { display: contents; }
+  #game .board { grid-column: 2; grid-row: 1 / 5; align-self: center; }
+  #game .hud { grid-column: 1; grid-row: 2; align-self: end; }
+  #game .status { grid-column: 1; grid-row: 3; }
+  #game .actions { grid-column: 1; grid-row: 4; align-self: start; flex-wrap: wrap; }
+}
+
+.hud {
+  display: flex;
+  align-items: baseline;
+  gap: 1.1rem;
+  max-width: 100%;
+}
+
+/* Game name: quiet next to the wordmark, truncates before it can wrap. */
+.game-name {
+  min-width: 0;
+  color: var(--muted);
+}
+.game-name > span,
+.name-edit {
+  display: block;
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.name-edit {
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  color: var(--muted);
+  border-bottom: 1px dashed transparent;
+}
+.name-edit:hover,
+.name-edit:focus-visible {
+  border-bottom-color: var(--muted);
+}
+.name-input {
+  font: inherit;
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--edge);
+  border-radius: 0.4rem;
+  padding: 0 0.35rem;
+  width: 11rem;
+}
+.score {
+  font-variant-numeric: tabular-nums;
+  font-size: 1.05rem;
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 1.4rem;
+  font-size: 1.05rem;
+}
+.status .countdown {
+  color: var(--muted);
+}
+/* Status dot: the color shows whose turn it is (grey when that player
+   is away). Presence lives on the scoreboard chips' pulse instead. */
+.dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--muted);
+  opacity: 0.3;
+  transition: opacity 150ms;
+}
+.dot.on { opacity: 1; }
+.dot.black.on { background: var(--black); box-shadow: inset 0 0 0 1.5px var(--black-rim); }
+.dot.red.on { background: var(--red); }
+
+/* ---------------- board ---------------- */
+
+/* Squares are a grid; pieces float above them on their own layer,
+   positioned by transform from --r/--c (display row and column), so a
+   move can slide from square to square. Pieces never take the pointer:
+   every tap lands on the square beneath. */
+.board {
+  --frame-width: calc(var(--cell) * 0.15);
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(8, var(--cell));
+  grid-template-rows: repeat(8, var(--cell));
+  border: var(--frame-width) solid var(--frame);
+  border-radius: calc(var(--cell) * 0.2);
+  background: var(--square-light);
+  /* a quiet contact shadow beneath: the board rests on the page */
+  box-shadow: 0 12px 20px -14px var(--board-shadow);
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.square {
+  position: relative;
+}
+.square.dark {
+  background: var(--square-dark);
+}
+.square.live {
+  cursor: pointer;
+}
+.square:focus-visible {
+  outline: 2px solid var(--fg);
+  outline-offset: -2px;
+  z-index: 2;
+}
+
+/* Last move: a thin, faint outline on every square the piece stood on. */
+.square.trail::after {
+  content: "";
+  position: absolute;
+  inset: 5%;
+  border: max(1.5px, calc(var(--cell) * 0.025)) solid
+    color-mix(in oklch, var(--accent) 38%, transparent);
+  border-radius: calc(var(--cell) * 0.08);
+  pointer-events: none;
+}
+
+/* Where a captured piece stood: a faint hollow of it. */
+.ghost {
+  position: absolute;
+  inset: 14%;
+  border-radius: 50%;
+  border: max(1.5px, calc(var(--cell) * 0.03)) dashed
+    color-mix(in oklch, var(--accent) 40%, transparent);
+  pointer-events: none;
+}
+.ghost.arrive {
+  animation: fade-in 220ms ease both;
+  animation-delay: var(--delay, 0ms);
+}
+
+/* Legal destinations for the selected piece: a dot for a step, a ring
+   for a capture landing. */
+.marker {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.marker.step {
+  inset: 37%;
+  background: color-mix(in oklch, var(--accent) 45%, transparent);
+}
+.marker.jump {
+  inset: 20%;
+  border: max(2px, calc(var(--cell) * 0.045)) solid
+    color-mix(in oklch, var(--accent) 50%, transparent);
+}
+
+.piece {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--cell);
+  height: var(--cell);
+  transform: translate(calc(var(--c) * var(--cell)), calc(var(--r) * var(--cell)));
+  pointer-events: none;
+  z-index: 1;
+}
+.piece::before {
+  /* the disc itself, lit from the top of the screen */
+  content: "";
+  position: absolute;
+  inset: 12%;
+  border-radius: 50%;
+  background: var(--piece-color);
+  box-shadow:
+    inset 0 0 0 var(--rim-width, 0) var(--piece-rim, transparent),
+    inset 0 -3px 6px oklch(0% 0 0 / 0.22),
+    0 2px 3px oklch(0% 0 0 / 0.25);
+}
+.piece.red {
+  --piece-color: var(--red);
+  --crown-color: var(--crown-on-red);
+}
+.piece.black {
+  --piece-color: var(--black);
+  --piece-rim: var(--black-rim);
+  --rim-width: max(1.5px, calc(var(--cell) * 0.028));
+  --crown-color: var(--crown-on-black);
+}
+.crown {
+  position: absolute;
+  inset: 33%;
+  width: 34%;
+  height: 34%;
+  color: var(--crown-color);
+}
+.crown.arrive {
+  animation: crown-in 260ms cubic-bezier(0.3, 1.4, 0.5, 1) both;
+  animation-delay: var(--delay, 0ms);
+}
+
+/* The selected piece, and pieces that must capture this turn. */
+.piece.selected::after,
+.piece.must::after {
+  content: "";
+  position: absolute;
+  inset: 6%;
+  border-radius: 50%;
+  border: max(2px, calc(var(--cell) * 0.04)) solid var(--accent);
+}
+.piece.must::after {
+  border-color: color-mix(in oklch, var(--accent) 35%, transparent);
+}
+/* The piece a capture landing would take. */
+.piece.target::after {
+  content: "";
+  position: absolute;
+  inset: 6%;
+  border-radius: 50%;
+  border: max(1.5px, calc(var(--cell) * 0.03)) dashed
+    color-mix(in oklch, var(--accent) 60%, transparent);
+}
+
+.piece.last {
+  animation: pulse 1.25s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 20% { opacity: 1; }
+  60% { opacity: 0.6; }
+  100% { opacity: 1; }
+}
+@keyframes chip-pulse {
+  0%, 20%, 100% { background: var(--chip-pulse-color); }
+  60% { background: color-mix(in oklch, var(--chip-pulse-color) 55%, transparent); }
+}
+#score .chip.black.on { --chip-pulse-color: var(--black); }
+#score .chip.red.on { --chip-pulse-color: var(--red); }
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes crown-in {
+  from { opacity: 0; transform: scale(0.4); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The pulse becomes a still ring, so the last move is still marked. */
+  .piece.last {
+    animation: none;
+  }
+  .piece.last::after {
+    content: "";
+    position: absolute;
+    inset: 6%;
+    border-radius: 50%;
+    border: max(1.5px, calc(var(--cell) * 0.03)) solid
+      color-mix(in oklch, var(--accent) 55%, transparent);
+  }
+  .ghost.arrive,
+  .crown.arrive {
+    animation: none;
+  }
+  #score .chip.on {
+    animation: none;
+  }
+}
+
+.actions {
+  display: flex;
+  gap: 0.7rem;
+}
+
+/* Resign is destructive: red, but never a primary action. The first tap
+   arms it; the armed state fills red and asks for a second tap. */
+.resign {
+  color: var(--danger);
+}
+.resign.armed {
+  background: var(--danger);
+  border-color: transparent;
+  color: var(--danger-ink);
+}
+
+/* ---------------- celebration ---------------- */
+
+/* The end-of-round layer, back to front: the scrim, settled paint, paint
+   still in flight, the verdict, the emoji — over everything including
+   the theme toggle. It swallows the pointer, because a tap anywhere is
+   what dismisses it. Sizes and positions come from createCelebration()
+   in app.js, which is also where the timings not listed here live. */
+.celebration {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  cursor: pointer;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.celebration-dim {
+  position: absolute;
+  inset: 0;
+  background: oklch(0% 0 0);
+  opacity: 0;
+  transition: opacity 350ms ease;
+}
+.celebration.lit .celebration-dim {
+  opacity: var(--dim, 0);
+}
+
+.celebration-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Positioned on the board's center from script; the transform carries
+   both the centering and the grow, so they can't fight each other. */
+.celebration-emoji {
+  position: absolute;
+  font-size: var(--size, 160px);
+  line-height: 1;
+  transform: translate(-50%, -50%) scale(1);
+  user-select: none;
+  /* keep the system emoji face rather than a monochrome fallback */
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji",
+    sans-serif;
+}
+/* Winning: swells up out of nothing while the paint gathers behind it. */
+.celebration.lit.entrance-grow .celebration-emoji {
+  animation: celebrate-grow 700ms cubic-bezier(0.2, 0.85, 0.3, 1) both;
+}
+@keyframes celebrate-grow {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(var(--from, 0.08));
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+/* Losing: falls in from above the viewport and settles on the board,
+   the same gravity curve and single small bounce as a dropped piece. */
+.celebration.lit.entrance-drop .celebration-emoji {
+  animation: celebrate-fall 640ms cubic-bezier(0.55, 0, 1, 0.45) both;
+}
+@keyframes celebrate-fall {
+  0% {
+    transform: translate(-50%, calc(-50% - var(--drop, 100vh)));
+  }
+  72% {
+    transform: translate(-50%, -50%);
+  }
+  86% {
+    transform: translate(-50%, calc(-50% - var(--bounce, 10px)));
+  }
+  100% {
+    transform: translate(-50%, -50%);
+  }
+}
+
+/* A draw: slams in. Arrives oversized as it fades up, compresses past
+   its resting size on impact, rebounds and settles. */
+.celebration.lit.entrance-slam .celebration-emoji {
+  animation: celebrate-slam 320ms ease-out both;
+}
+@keyframes celebrate-slam {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.3);
+  }
+  28% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(0.88);
+  }
+  62% {
+    transform: translate(-50%, -50%) scale(1.04);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes celebrate-appear {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* The verdict, over the emoji. Bold 700 is the heaviest Nebula Sans we
+   ship, and the size is set from script — it depends on the board, the
+   room above the emoji, and how long the words are. */
+.celebration-title {
+  position: absolute;
+  font-size: var(--title-size, 3.6rem);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  /* Unscrimmed: the page's own foreground, haloed in the page color so
+     a droplet landing on a letter can't eat it. Every outcome currently
+     sets a scrim, so the rule below always wins — this is the fallback
+     kept for an outcome with `dim: 0`, which the spec still allows. */
+  color: var(--fg);
+  text-shadow: 0 0 20px var(--bg), 0 0 7px var(--bg);
+  transform: translate(-50%, -100%);
+  user-select: none;
+}
+/* Over the scrim, the page's foreground would be invisible in light
+   mode. The shadow matters at the win's lighter 50%, where a pale page
+   only half-darkens and white letters would otherwise sit at roughly
+   2:1 against it; at 85% it costs nothing. */
+.celebration.scrim .celebration-title {
+  color: oklch(98% 0 0);
+  text-shadow: 0 2px 16px oklch(0% 0 0 / 0.6), 0 0 6px oklch(0% 0 0 / 0.45);
+}
+.celebration.lit .celebration-title {
+  animation: celebrate-title 300ms ease both;
+}
+@keyframes celebrate-title {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-100% + 10px));
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -100%);
+  }
+}
+.celebration.out .celebration-title {
+  animation: none;
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+/* Out fast, from wherever the grow had got to. */
+.celebration.out .celebration-emoji {
+  animation: none;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.86);
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+.celebration.out .celebration-dim {
+  opacity: 0;
+  transition-duration: 200ms;
+}
+
+/* Reduced motion: the emoji still appears — it carries the result —
+   but no swelling and nothing falling, and script skips the splatters
+   entirely. Listed per entrance to match the specificity above; a
+   media query adds none of its own. */
+@media (prefers-reduced-motion: reduce) {
+  .celebration.lit.entrance-grow .celebration-emoji,
+  .celebration.lit.entrance-drop .celebration-emoji,
+  .celebration.lit.entrance-slam .celebration-emoji {
+    animation: celebrate-appear 220ms ease both;
+  }
+  .celebration.lit .celebration-title {
+    animation: celebrate-appear 220ms ease both;
+  }
+  .celebration.out .celebration-emoji {
+    transform: translate(-50%, -50%) scale(1);
+  }
+}

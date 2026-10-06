@@ -1,0 +1,31 @@
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY
+  Content-Security-Policy: default-src 'self'; connect-src 'self' wss: ws:; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  X-Robots-Tag: noindex, nofollow
+  Cache-Control: no-cache
+
+# HTML/JS/CSS revalidate on every load (no-cache above — ETag makes that a
+# cheap 304), while the assets that never change under their names get long
+# lifetimes, so a bad connection re-downloads as little as possible. The
+# "! Cache-Control" lines detach the no-cache inherited from /*.
+/fonts/*
+  ! Cache-Control
+  Cache-Control: public, max-age=31536000, immutable
+
+/icon-*
+  ! Cache-Control
+  Cache-Control: public, max-age=604800
+
+/apple-touch-icon.png
+  ! Cache-Control
+  Cache-Control: public, max-age=604800
+
+/favicon.ico
+  ! Cache-Control
+  Cache-Control: public, max-age=604800
+
+/favicon.svg
+  ! Cache-Control
+  Cache-Control: public, max-age=604800

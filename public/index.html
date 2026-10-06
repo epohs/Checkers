@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Checkers</title>
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f4f2ea">
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#15191d">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon.ico" sizes="48x48">
+  <link rel="icon" href="/icon-32.png" type="image/png" sizes="32x32">
+  <link rel="icon" href="/icon-16.png" type="image/png" sizes="16x16">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
+  <link rel="preload" href="/fonts/NebulaSans-Book.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="modulepreload" href="/rules.js">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <button id="theme-toggle" aria-label="Toggle theme" title="Toggle theme"></button>
+
+  <main id="landing" hidden>
+    <h1 class="wordmark">Checkers</h1>
+    <p class="tagline">Two players, one link &mdash; live or whenever.</p>
+    <button id="new-game" class="primary">New game</button>
+    <section id="recent" hidden>
+      <h2>Recent games</h2>
+      <ul id="recent-list"></ul>
+    </section>
+  </main>
+
+  <main id="game" hidden>
+    <a class="game-wordmark" href="/">Checkers</a>
+    <div class="game-core">
+      <div class="hud">
+        <span id="game-name" class="game-name"></span>
+        <div id="score" class="score"></div>
+      </div>
+      <div id="status" class="status"></div>
+      <div id="board" class="board" role="group" aria-label="Checkers board"></div>
+      <div class="actions">
+        <button id="leave">Leave</button>
+        <button id="share">Copy link</button>
+        <button id="resign" class="resign" hidden>Resign</button>
+        <button id="rematch" class="primary" hidden>Rematch</button>
+      </div>
+    </div>
+  </main>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
