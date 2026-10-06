@@ -1,0 +1,25 @@
+# macOS
+__MACOSX/
+.DS_Store
+.AppleDouble
+.LSOverride
+.Spotlight-V100
+.Trashes
+
+# Node / Wrangler
+node_modules/
+.wrangler/
+*.log
+
+# Wrangler writes deployment state here; it is machine-local.
+config.json
+
+# Environments and secrets. CANONICAL_HOST is set as a Worker secret,
+# never in the repo — see the Env interface in src/worker.ts.
+.env
+.dev.vars
+.envrc
+
+# Editors
+.vscode/
+.idea/
