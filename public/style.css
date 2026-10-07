@@ -84,6 +84,7 @@ button {
   border-radius: 0.55rem;
   padding: 0.5rem 1.1rem;
   cursor: pointer;
+  touch-action: manipulation;
 }
 button.primary {
   background: var(--fg);
@@ -409,6 +410,8 @@ button:active {
   box-shadow: 0 12px 20px -14px var(--board-shadow);
   -webkit-tap-highlight-color: transparent;
   user-select: none;
+  /* tap-tap moves are a double tap; never let the browser zoom on them */
+  touch-action: manipulation;
 }
 
 .square {

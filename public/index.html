@@ -15,6 +15,10 @@
   <link rel="preload" href="/fonts/NebulaSans-Book.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="modulepreload" href="/rules.js">
   <link rel="stylesheet" href="/style.css">
+  <!-- A pinned theme must land before first paint, or the page flashes
+       the system scheme. Inline so it runs before the stylesheet; its
+       sha256 is allowed by the CSP in _headers. Change one, change both. -->
+  <script>try{var t=JSON.parse(localStorage.getItem("checkers:theme"));if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}</script>
 </head>
 <body>
   <button id="theme-toggle" aria-label="Toggle theme" title="Toggle theme"></button>

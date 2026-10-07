@@ -2,7 +2,7 @@
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   X-Frame-Options: DENY
-  Content-Security-Policy: default-src 'self'; connect-src 'self' wss: ws:; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-POye+lqohSt+Zcc92cVPmtKf28O0U1/PNnYnkhDMPKA='; connect-src 'self' wss: ws:; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
   X-Robots-Tag: noindex, nofollow
   Cache-Control: no-cache
 

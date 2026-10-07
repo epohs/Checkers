@@ -476,6 +476,11 @@ function main() {
     let queuedName = null; // rename typed while offline; sent on next welcome
     let log = [];
     let epoch = null; // log generation from the server; guards delta sync
+    // The derived state, memoized on the log's identity and length: the
+    // log only ever grows by push or is replaced wholesale by mergeLog,
+    // so those two are enough to know the replay is current. A tap or
+    // an arriving event otherwise replays the whole log several times.
+    let derived = { log: null, length: -1, state: null };
     let presence = { black: false, red: false };
     let pending = false; // an append is in flight; wait for its broadcast
     let pendingStamp = 0;
@@ -655,6 +660,14 @@ function main() {
       if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
     }
 
+    /** The game as derived from the log right now. */
+    function current() {
+      if (derived.log !== log || derived.length !== log.length) {
+        derived = { log, length: log.length, state: derive(log) };
+      }
+      return derived.state;
+    }
+
     function requestResync() {
       if (resyncing) return;
       resyncing = true;
@@ -705,7 +718,7 @@ function main() {
             pending = false;
             selection = null;
             rememberRecent();
-            render({ live: true, slide: !mine });
+            render({ live: true, slide: !mine && msg.event.kind === "move" ? msg.event : null });
           } else if (msg.index > log.length) {
             requestResync(); // we missed events
           } // behind: duplicate, ignore
@@ -732,7 +745,7 @@ function main() {
           // Presence touches the HUD only: rebuilding the board here
           // would cut short a move that's mid-slide.
           presence = { black: !!msg.black, red: !!msg.red };
-          const state = derive(log);
+          const state = current();
           renderScore(state);
           renderStatus(state);
           break;
@@ -751,7 +764,7 @@ function main() {
     // shouldn't cost a localStorage write.
     function rememberRecent() {
       if (!seat) return;
-      const state = derive(log);
+      const state = current();
       const stored = store.get("checkers:recent", []);
       const recent = (Array.isArray(stored) ? stored : []).filter(
         (g) => g && g.code !== code,
@@ -807,7 +820,7 @@ function main() {
      * path is complete. See "Making a move" in docs/design.md.
      */
     function tap(square) {
-      const state = derive(log);
+      const state = current();
       const mover = actingSeat(state);
       if (!mover) return;
       const moves = legalMoves(state.board, mover);
@@ -833,7 +846,7 @@ function main() {
 
     function select(path) {
       selection = path;
-      renderBoard(derive(log));
+      renderBoard(current());
     }
 
     function hop(state, moves, square) {
@@ -857,7 +870,7 @@ function main() {
       if (selection.length > 1) {
         // Mid-jump: rewind to the start, and the popped pieces fade
         // back in. Nothing was sent, so it costs nothing.
-        const state = derive(log);
+        const state = current();
         const restored = applyMove(state.board, selection).captured.map((c) => c.square);
         selection = [selection[0]];
         renderBoard(state, null, restored);
@@ -868,18 +881,30 @@ function main() {
 
     /* ---------- rendering ---------- */
 
-    function render({ live = false, slide = false } = {}) {
-      const state = derive(log);
+    /*
+     * `slide` is a move event that just arrived from someone else. It
+     * animates only if it is the move the replay actually applied: a
+     * resign or a shrugged-off event leaves `lastMove` pointing at an
+     * older move, and that one has already had its turn on screen.
+     */
+    function render({ live = false, slide = null } = {}) {
+      const state = current();
       renderName();
       renderScore(state);
       renderStatus(state);
       clearTimeout(boardTimer);
-      const wait = slide ? 0 : boardSettlesAt - performance.now();
+      const arrived = !!(
+        slide &&
+        state.lastMove &&
+        state.lastMove.seat === slide.seat &&
+        state.lastMove.path.join() === String(slide.path)
+      );
+      const wait = arrived ? 0 : boardSettlesAt - performance.now();
       let motion = 0;
-      if (wait > 0) boardTimer = setTimeout(() => renderBoard(derive(log)), wait);
-      else motion = renderBoard(state, slide ? state.lastMove : null);
+      if (wait > 0) boardTimer = setTimeout(() => renderBoard(current()), wait);
+      else motion = renderBoard(state, arrived ? state.lastMove : null);
       renderActions(state);
-      maybeCelebrate(state, live, slide ? motion : Math.max(0, wait));
+      maybeCelebrate(state, live, arrived ? motion : Math.max(0, wait));
     }
 
     /*
@@ -1307,9 +1332,9 @@ function main() {
       }
       disarmResign();
       // In hot seat, the side to move is the one resigning.
-      if (tryAppend({ kind: "resign" }, actingSeat(derive(log)) ?? seat)) {
+      if (tryAppend({ kind: "resign" }, actingSeat(current()) ?? seat)) {
         selection = null;
-        renderBoard(derive(log));
+        renderBoard(current());
       }
     });
 
